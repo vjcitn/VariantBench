@@ -1,2 +1,1 @@
-# VariantBench
-formal approach to benchmarking variant access and analysis
+# VariantBench -- harness and methods for benchmarking diverse APIs for variant access and analysis

@@ -1,0 +1,76 @@
+---
+title: "VariantBench -- benchmarking variant access and analysis"
+author: "Vincent J. Carey, stvjc at channing.harvard.edu"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+vignette: >
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteIndexEntry{VariantBench -- benchmarking variant access and analysis}
+  %\VignetteEncoding{UTF-8}
+output:
+  BiocStyle::pdf_document:
+    toc: yes
+    number_sections: yes
+  BiocStyle::html_document:
+    highlight: pygments
+    number_sections: yes
+    theme: united
+    toc: yes
+---
+
+# Introduction
+
+We will illustrate a simple use of the harness for
+multiple approaches to VCF access.  We have a local
+version of the Tabix-indexed VCF for chr17 for 1000 genomes.
+We'll set up packages and path.
+```{r setup}
+suppressPackageStartupMessages({
+library(VariantBench)
+library(GenomicRanges)
+})
+loc17 = "/Users/stvjc/Research/VCF/ALL.chr17.phase3_shapeit2_mvncall_integrated_v5.20130502.genotypes.vcf.gz"
+```
+
+An illustrative _closure_ is provided that encapsulates
+the information about the VCF to be processed.
+```{r lkclo}
+useScanVcfClo
+```
+
+We bind the file path to the VCF processing function.
+```{r lkclo2}
+useScanVcf_local = useScanVcfClo(loc17)
+useScanVcf_local 
+ls(environment(useScanVcf_local))
+```
+
+Now run the harnessed processing function.
+```{r dorun}
+vbHarness(GRanges("17", IRanges(16e6, 16.01e6)), 
+    list(useScanVcf=useScanVcf_local))
+```
+
+We can collect information on multiple request types
+by iterating over ranges of various widths.
+```{r setiter}
+rngs = GRanges("17", IRanges(16e6, width=c(1e4, 2e4, 5e4, 1e5)))
+multperf = lapply(rngs, function(r)
+  vbHarness(r, list(useScanVcf=useScanVcf_local)))
+```
+
+The following overcomplicated functions extract key information
+about performance.  These are fragile to details of the
+output of the method passed to the harness.
+```{r deff}
+widths = function(x) sapply(x, sapply, 
+  function(y) width(y$request))
+meantimes = function(y)apply(sapply(y, 
+    function(x) (x$useScanVcf$timing$time)), 2, mean)
+```
+
+This permits a plot like
+```{r dopl, fig=TRUE}
+plot( widths(multperf), meantimes(multperf)/10^6, type="b",
+  xlab="request width in bp", ylab="time in microsec")
+```
+
